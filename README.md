@@ -1,234 +1,210 @@
 # Motor de Reglas de Reembolsos Medicos
 
-A domain-driven **Medical Reimbursement Rules Engine** built in Python that processes reimbursement requests (_solicitudes de reembolso_) through configurable business rules and a well-defined state machine. The project is designed as an architectural showcase of clean code, design patterns, and software design principles.
+Motor de reglas de reembolsos medicos construido en Python que procesa solicitudes de reembolso a traves de reglas de negocio configurables y una maquina de estados bien definida. El proyecto esta disenado como una muestra arquitectonica de codigo limpio y principios de diseno de software.
 
 ---
 
-## Table of Contents
+## Tabla de Contenidos
 
-- [Project Structure](#project-structure)
-- [Architecture Overview](#architecture-overview)
-- [Domain Model](#domain-model)
-- [Design Patterns](#design-patterns)
-- [Design Principles](#design-principles)
-- [State Machine](#state-machine)
-- [Business Rules](#business-rules)
-- [Type Policies](#type-policies)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Vision General de la Arquitectura](#vision-general-de-la-arquitectura)
+- [Modelo de Dominio](#modelo-de-dominio)
+- [Principios de Diseno](#principios-de-diseno)
+- [Maquina de Estados](#maquina-de-estados)
+- [Reglas de Negocio](#reglas-de-negocio)
+- [Politicas por Tipo](#politicas-por-tipo)
 
 ---
 
-## Project Structure
+## Estructura del Proyecto
 
 ```
 project/
-|-- domain/                 # Entities and value objects
-|   |-- solicitud.py        # SolicitudReembolso (aggregate root)
-|   |-- paciente.py         # Paciente entity
-|   |-- prestador.py        # Prestador entity
-|   |-- documento.py        # DocumentoAdjunto entity
-|   |-- hallazgo_regla.py   # HallazgoRegla value object
-|   |-- resultado_accion.py # ResultadoAccion value object
-|   |-- resultado_evaluacion.py # ResultadoEvaluacion value object
+|-- domain/                 # Entidades y objetos de valor
+|   |-- solicitud.py        # SolicitudReembolso (raiz del agregado)
+|   |-- paciente.py         # Entidad Paciente
+|   |-- prestador.py        # Entidad Prestador
+|   |-- documento.py        # Entidad DocumentoAdjunto
+|   |-- hallazgo_regla.py   # Objeto de valor HallazgoRegla
+|   |-- resultado_accion.py # Objeto de valor ResultadoAccion
+|   |-- resultado_evaluacion.py # Objeto de valor ResultadoEvaluacion
 |
-|-- enums/                  # Enumeration types
-|   |-- tipo_solicitud.py   # Request types (Medicamento, Urgencias, etc.)
-|   |-- accion_solicitud.py # Actions (Submit, Approve, Reject, etc.)
-|   |-- decision_evaluacion.py # Evaluation outcomes (Aprobable, Rechazable)
+|-- enums/                  # Tipos enumerados
+|   |-- tipo_solicitud.py   # Tipos de solicitud (Medicamento, Urgencias, etc.)
+|   |-- accion_solicitud.py # Acciones (Enviar, Aprobar, Rechazar, etc.)
+|   |-- decision_evaluacion.py # Resultados de evaluacion (Aprobable, Rechazable)
 |
-|-- policies/               # Strategy implementations per request type
-|   |-- politica_tipo_solicitud.py  # IPoliticaTipoSolicitud (interface)
-|   |-- medicamento_policy.py       # Medication policy
-|   |-- procedimiento_policy.py     # Outpatient procedure policy
-|   |-- urgencias_policy.py         # Emergency policy
-|   |-- examen_policy.py            # Diagnostic exam policy
+|-- policies/               # Implementaciones de estrategia por tipo de solicitud
+|   |-- politica_tipo_solicitud.py  # IPoliticaTipoSolicitud (interfaz)
+|   |-- medicamento_policy.py       # Politica de medicamentos
+|   |-- procedimiento_policy.py     # Politica de procedimientos ambulatorios
+|   |-- urgencias_policy.py         # Politica de urgencias
+|   |-- examen_policy.py            # Politica de examenes diagnosticos
 |
-|-- ports/                  # Abstract ports (hexagonal architecture)
+|-- ports/                  # Puertos abstractos (arquitectura hexagonal)
 |   |-- clock.py            # IClock
 |   |-- prestador_catalog.py        # IPrestadorHabilitadoCatalog
 |   |-- tipo_solicitud_provider.py  # ITipoSolicitudProvider
 |
-|-- rules/                  # Business rule evaluators
-|   |-- regla_evaluacion.py          # ReglaEvaluacion (abstract base)
-|   |-- regla_consistencia_datos.py  # Data consistency validation
-|   |-- regla_documentacion.py       # Minimum documentation check
-|   |-- regla_monto_maximo.py        # Maximum amount enforcement
-|   |-- regla_prestador_habilitado.py # Provider enablement check
-|   |-- regla_ventana_tiempo.py      # 60-day time window validation
+|-- rules/                  # Evaluadores de reglas de negocio
+|   |-- regla_evaluacion.py          # ReglaEvaluacion (base abstracta)
+|   |-- regla_consistencia_datos.py  # Validacion de consistencia de datos
+|   |-- regla_documentacion.py       # Verificacion de documentacion minima
+|   |-- regla_monto_maximo.py        # Control de monto maximo
+|   |-- regla_prestador_habilitado.py # Verificacion de prestador habilitado
+|   |-- regla_ventana_tiempo.py      # Validacion de ventana de 60 dias
 |
-|-- services/               # Application-layer services
-|   |-- motor_reglas_facade.py     # MotorReglasFacade (entry point)
-|   |-- evaluador_solicitudes.py   # Rule evaluation orchestrator
-|   |-- ejecutor_acciones.py       # Action execution handler
+|-- services/               # Servicios de capa de aplicacion
+|   |-- motor_reglas_facade.py     # MotorReglasFacade (punto de entrada)
+|   |-- evaluador_solicitudes.py   # Orquestador de evaluacion de reglas
+|   |-- ejecutor_acciones.py       # Manejador de ejecucion de acciones
 |
-|-- states/                 # State pattern for request lifecycle
-    |-- estado_solicitud.py   # IEstadoSolicitud (interface)
-    |-- draft_state.py        # Draft (initial state)
-    |-- submitted_state.py    # Submitted
-    |-- under_review_state.py # Under Review
-    |-- approved_state.py     # Approved (terminal)
-    |-- rejected_state.py     # Rejected (terminal)
+|-- states/                 # Patron de estado para el ciclo de vida
+    |-- estado_solicitud.py   # IEstadoSolicitud (interfaz)
+    |-- draft_state.py        # Borrador (estado inicial)
+    |-- submitted_state.py    # Enviada
+    |-- under_review_state.py # En revision
+    |-- approved_state.py     # Aprobada (terminal)
+    |-- rejected_state.py     # Rechazada (terminal)
 ```
 
 ---
 
-## Architecture Overview
+## Vision General de la Arquitectura
 
-The system follows a **Hexagonal Architecture (Ports & Adapters)** organized in clearly separated layers:
+El sistema sigue una **Arquitectura Hexagonal (Puertos y Adaptadores)** organizada en capas claramente separadas:
 
 ```
 +----------------------------------------------+
-|              Application Layer                |
-|   MotorReglasFacade (Facade entry point)      |
+|            Capa de Aplicacion                 |
+|   MotorReglasFacade (punto de entrada)        |
 |   EvaluadorSolicitudes | EjecutorAcciones     |
 +----------------------------------------------+
         |               |               |
 +-------v---+   +-------v---+   +-------v--------+
-|   Rules   |   |   States  |   |   Policies     |
-| (Business |   | (Lifecycle|   | (Type-specific  |
-|  logic)   |   |  control) |   |  strategies)    |
+|  Reglas   |   |  Estados  |   |  Politicas     |
+| (Logica   |   | (Control  |   | (Estrategias   |
+|  negocio) |   |  de ciclo |   |  por tipo)     |
+|           |   |  de vida) |   |                |
 +-----------+   +-----------+   +----------------+
         |
 +-------v-----------+
-|   Ports            |  Abstract interfaces for
-|   IClock           |  external dependencies
+|   Puertos          |  Interfaces abstractas para
+|   IClock           |  dependencias externas
 |   IPrestador...    |
 |   ITipoSolicitud.. |
 +--------------------+
         |
 +-------v-----------+
-|   Domain           |  Entities & Value Objects
+|   Dominio          |  Entidades y Objetos de Valor
 |   SolicitudReembolso, Paciente,               |
 |   Prestador, DocumentoAdjunto, ...            |
 +--------------------+
 
-    Enums (cross-cutting): TipoSolicitud, AccionSolicitud, DecisionEvaluacion
+    Enums (transversales): TipoSolicitud, AccionSolicitud, DecisionEvaluacion
 ```
 
-**Key architectural decisions:**
+**Decisiones arquitectonicas clave:**
 
-- **Domain entities** hold data and identity but no infrastructure concerns.
-- **Ports** (`ports/`) define abstract contracts for external dependencies (clock, catalogs), allowing the domain to remain infrastructure-agnostic.
-- **Services** orchestrate use cases by composing rules, states, and policies through dependency injection.
-- All dependencies flow **inward** toward the domain -- outer layers depend on inner abstractions, never the reverse.
+- Las **entidades de dominio** contienen datos e identidad, pero ninguna preocupacion de infraestructura.
+- Los **puertos** (`ports/`) definen contratos abstractos para dependencias externas (reloj, catalogos), permitiendo que el dominio permanezca agnostico a la infraestructura.
+- Los **servicios** orquestan casos de uso componiendo reglas, estados y politicas mediante inyeccion de dependencias.
+- Todas las dependencias fluyen **hacia adentro**, hacia el dominio -- las capas externas dependen de abstracciones internas, nunca al reves.
 
 ---
 
-## Domain Model
+## Modelo de Dominio
 
-| Class | Type | Description |
+| Clase | Tipo | Descripcion |
 |-------|------|-------------|
-| `SolicitudReembolso` | Aggregate Root | Central entity representing a reimbursement request. Holds references to patient, provider, documents, current state, and evaluation result. |
-| `Paciente` | Entity | The patient requesting the reimbursement. |
-| `Prestador` | Entity | The healthcare provider. |
-| `DocumentoAdjunto` | Entity | An attached document (invoice, medical order, etc.). |
-| `HallazgoRegla` | Value Object | A finding/issue detected during rule evaluation. |
-| `ResultadoAccion` | Value Object | The outcome (success/failure) of executing an action. |
-| `ResultadoEvaluacion` | Value Object | Consolidated result of all rule evaluations, carrying a decision and a list of findings. |
+| `SolicitudReembolso` | Raiz del Agregado | Entidad central que representa una solicitud de reembolso. Contiene referencias al paciente, prestador, documentos, estado actual y resultado de evaluacion. |
+| `Paciente` | Entidad | El paciente que solicita el reembolso. |
+| `Prestador` | Entidad | El prestador de servicios de salud. |
+| `DocumentoAdjunto` | Entidad | Un documento adjunto (factura, orden medica, etc.). |
+| `HallazgoRegla` | Objeto de Valor | Un hallazgo o problema detectado durante la evaluacion de reglas. |
+| `ResultadoAccion` | Objeto de Valor | El resultado (exito/fallo) de ejecutar una accion. |
+| `ResultadoEvaluacion` | Objeto de Valor | Resultado consolidado de todas las evaluaciones de reglas, que contiene una decision y una lista de hallazgos. |
 
 ---
 
-## Design Patterns
-
-### State Pattern (`states/`)
-
-The request lifecycle is modeled as a finite state machine. Each state is a class implementing `IEstadoSolicitud`, which controls:
-- Which actions are permitted in that state.
-- The transition logic to the next state.
-
-`SolicitudReembolso` delegates behavior to its current `estadoActual`, and states return the next state object on transition -- the request never manages its own transitions directly.
-
-### Strategy Pattern (`policies/`)
-
-Each request type (medication, emergency, outpatient procedure, diagnostic exam) has different business rules for required documents and maximum reimbursable amounts. Rather than encoding these differences in conditionals, each type has its own **policy** class implementing `IPoliticaTipoSolicitud`. Rules query the appropriate policy at evaluation time via `ITipoSolicitudProvider`.
-
-### Facade Pattern (`services/motor_reglas_facade.py`)
-
-`MotorReglasFacade` provides a unified, simplified interface for clients to interact with the rules engine. It coordinates the `EvaluadorSolicitudes` (rule evaluation) and `EjecutorAcciones` (state transitions), shielding consumers from the internal complexity.
-
-### Dependency Injection
-
-All services and rules receive their dependencies through constructor parameters. Rules that need external data (clock, provider catalog, policy provider) receive abstract ports -- never concrete implementations. This makes every component independently testable and replaceable.
-
----
-
-## Design Principles
+## Principios de Diseno
 
 ### SOLID
 
-| Principle | How It Is Applied |
-|-----------|-------------------|
-| **Single Responsibility (SRP)** | Each class has exactly one reason to change. Domain objects hold data, rules validate one aspect each, states manage their own transitions, and services orchestrate. |
-| **Open/Closed (OCP)** | New request types, rules, states, or policies can be added by creating a new class that implements the relevant interface -- no existing code needs modification. |
-| **Liskov Substitution (LSP)** | All concrete states are interchangeable through `IEstadoSolicitud`; all rules through `ReglaEvaluacion`; all policies through `IPoliticaTipoSolicitud`. Substituting any implementation preserves correct behavior. |
-| **Interface Segregation (ISP)** | Interfaces are minimal and focused. `IClock` exposes a single `today()` method; `IPrestadorHabilitadoCatalog` exposes a single `estaHabilitado()` method. No client is forced to depend on methods it does not use. |
-| **Dependency Inversion (DIP)** | High-level modules (services, rules) depend on abstractions defined in `ports/` and abstract base classes, not on concrete implementations. The direction of dependency always points toward the domain. |
+| Principio | Como se Aplica |
+|-----------|----------------|
+| **Responsabilidad Unica (SRP)** | Cada clase tiene exactamente una razon para cambiar. Los objetos de dominio contienen datos, las reglas validan un solo aspecto cada una, los estados gestionan sus propias transiciones y los servicios orquestan. |
+| **Abierto/Cerrado (OCP)** | Se pueden agregar nuevos tipos de solicitud, reglas, estados o politicas creando una nueva clase que implemente la interfaz correspondiente -- no se necesita modificar codigo existente. |
+| **Sustitucion de Liskov (LSP)** | Todos los estados concretos son intercambiables a traves de `IEstadoSolicitud`; todas las reglas a traves de `ReglaEvaluacion`; todas las politicas a traves de `IPoliticaTipoSolicitud`. Sustituir cualquier implementacion preserva el comportamiento correcto. |
+| **Segregacion de Interfaces (ISP)** | Las interfaces son minimas y enfocadas. `IClock` expone un unico metodo `today()`; `IPrestadorHabilitadoCatalog` expone un unico metodo `estaHabilitado()`. Ningun cliente se ve forzado a depender de metodos que no utiliza. |
+| **Inversion de Dependencias (DIP)** | Los modulos de alto nivel (servicios, reglas) dependen de abstracciones definidas en `ports/` y clases base abstractas, no de implementaciones concretas. La direccion de dependencia siempre apunta hacia el dominio. |
 
-### Additional Principles
+### Principios Adicionales
 
-| Principle | How It Is Applied |
-|-----------|-------------------|
-| **DRY (Don't Repeat Yourself)** | Common contracts are defined once in abstract interfaces and reused across all implementations. Enumeration values are centralized in the `enums/` package. |
-| **KISS (Keep It Simple, Stupid)** | Classes are deliberately simple. Value objects contain only data and a representation method. Policies return direct scalar values with no unnecessary logic. |
-| **YAGNI (You Aren't Gonna Need It)** | No speculative code exists. Terminal states (`ApprovedState`, `RejectedState`) have empty action sets and minimal implementations -- nothing beyond what is required. |
+| Principio | Como se Aplica |
+|-----------|----------------|
+| **DRY (No te Repitas)** | Los contratos comunes se definen una sola vez en interfaces abstractas y se reutilizan en todas las implementaciones. Los valores de enumeracion estan centralizados en el paquete `enums/`. |
+| **KISS (Mantenlo Simple)** | Las clases son deliberadamente simples. Los objetos de valor contienen unicamente datos y un metodo de representacion. Las politicas retornan valores escalares directos sin logica innecesaria. |
+| **YAGNI (No lo vas a Necesitar)** | No existe codigo especulativo. Los estados terminales (`ApprovedState`, `RejectedState`) tienen conjuntos de acciones vacios e implementaciones minimas -- nada mas alla de lo requerido. |
 
 ### GRASP
 
-| Principle | How It Is Applied |
-|-----------|-------------------|
-| **High Cohesion** | Each module groups only closely related responsibilities (e.g., all state classes in `states/`, all rules in `rules/`). |
-| **Low Coupling** | The domain has zero dependencies on infrastructure. Rules depend on abstract ports, not concrete services. |
-| **Creator** | Objects are created by the classes that have the information needed to initialize them (e.g., `UnderReviewState` creates `ApprovedState`/`RejectedState`). |
-| **Polymorphism** | Rules, states, and policies all leverage polymorphic dispatch to eliminate conditional logic. |
-| **Controller** | `MotorReglasFacade` acts as the coordinating controller for all use cases. |
+| Principio | Como se Aplica |
+|-----------|----------------|
+| **Alta Cohesion** | Cada modulo agrupa unicamente responsabilidades estrechamente relacionadas (ej. todas las clases de estado en `states/`, todas las reglas en `rules/`). |
+| **Bajo Acoplamiento** | El dominio tiene cero dependencias de infraestructura. Las reglas dependen de puertos abstractos, no de servicios concretos. |
+| **Creador** | Los objetos son creados por las clases que poseen la informacion necesaria para inicializarlos (ej. `UnderReviewState` crea `ApprovedState`/`RejectedState`). |
+| **Polimorfismo** | Reglas, estados y politicas aprovechan el despacho polimorfico para eliminar logica condicional. |
+| **Controlador** | `MotorReglasFacade` actua como el controlador coordinador de todos los casos de uso. |
 
 ---
 
-## State Machine
+## Maquina de Estados
 
-The request follows a well-defined lifecycle:
+La solicitud sigue un ciclo de vida bien definido:
 
 ```
-  DRAFT ──[SUBMIT]──> SUBMITTED ──[START_REVIEW]──> UNDER_REVIEW
-                                                        |
-                                              [EVALUATE]  (stays in UNDER_REVIEW)
-                                              [APPROVE] ──> APPROVED  (terminal)
-                                              [REJECT]  ──> REJECTED  (terminal)
+  BORRADOR ──[ENVIAR]──> ENVIADA ──[INICIAR_REVISION]──> EN_REVISION
+                                                              |
+                                                    [EVALUAR]  (permanece en EN_REVISION)
+                                                    [APROBAR] ──> APROBADA  (terminal)
+                                                    [RECHAZAR] ──> RECHAZADA (terminal)
 ```
 
-- **DRAFT**: Initial state. The only allowed action is `SUBMIT`.
-- **SUBMITTED**: Awaiting review assignment. The only allowed action is `START_REVIEW`.
-- **UNDER_REVIEW**: Active evaluation phase. Supports `EVALUATE`, `APPROVE`, and `REJECT`.
-  - `APPROVE` requires the evaluation decision to be `APROBABLE`.
-  - `REJECT` requires the evaluation decision to be `RECHAZABLE`.
-- **APPROVED / REJECTED**: Terminal states with no further actions allowed.
+- **BORRADOR**: Estado inicial. La unica accion permitida es `ENVIAR`.
+- **ENVIADA**: En espera de asignacion de revision. La unica accion permitida es `INICIAR_REVISION`.
+- **EN_REVISION**: Fase activa de evaluacion. Soporta `EVALUAR`, `APROBAR` y `RECHAZAR`.
+  - `APROBAR` requiere que la decision de evaluacion sea `APROBABLE`.
+  - `RECHAZAR` requiere que la decision de evaluacion sea `RECHAZABLE`.
+- **APROBADA / RECHAZADA**: Estados terminales sin acciones adicionales permitidas.
 
 ---
 
-## Business Rules
+## Reglas de Negocio
 
-The `EvaluadorSolicitudes` runs all registered rules against a request. If any rule produces a finding (`HallazgoRegla`), the decision is `RECHAZABLE`; otherwise it is `APROBABLE`.
+El `EvaluadorSolicitudes` ejecuta todas las reglas registradas contra una solicitud. Si alguna regla produce un hallazgo (`HallazgoRegla`), la decision es `RECHAZABLE`; de lo contrario es `APROBABLE`.
 
-| Rule | Validation | External Dependency |
-|------|-----------|---------------------|
-| `ReglaConsistenciaDatos` | Patient, provider, type, and amount > 0 are present | None |
-| `ReglaDocumentacionMinima` | All documents required by the type policy are attached | `ITipoSolicitudProvider` |
-| `ReglaMontoMaximo` | Requested amount does not exceed the type policy maximum | `ITipoSolicitudProvider` |
-| `ReglaPrestadorHabilitado` | Healthcare provider is active/enabled | `IPrestadorHabilitadoCatalog` |
-| `ReglaVentanaTiempo` | Event date is within 60 days of today | `IClock` |
+| Regla | Validacion | Dependencia Externa |
+|-------|-----------|---------------------|
+| `ReglaConsistenciaDatos` | Verifica que existan paciente, prestador, tipo y monto > 0 | Ninguna |
+| `ReglaDocumentacionMinima` | Verifica que todos los documentos requeridos por la politica del tipo esten adjuntos | `ITipoSolicitudProvider` |
+| `ReglaMontoMaximo` | Verifica que el monto solicitado no exceda el maximo de la politica del tipo | `ITipoSolicitudProvider` |
+| `ReglaPrestadorHabilitado` | Verifica que el prestador de salud este activo/habilitado | `IPrestadorHabilitadoCatalog` |
+| `ReglaVentanaTiempo` | Verifica que la fecha del evento este dentro de los 60 dias desde hoy | `IClock` |
 
-Adding a new rule requires only creating a class that extends `ReglaEvaluacion` and injecting it into the evaluator -- no existing rules or services need to change.
+Agregar una nueva regla solo requiere crear una clase que extienda `ReglaEvaluacion` e inyectarla en el evaluador -- no es necesario modificar reglas ni servicios existentes.
 
 ---
 
-## Type Policies
+## Politicas por Tipo
 
-Each request type defines its own required documents and maximum reimbursable amount:
+Cada tipo de solicitud define sus propios documentos requeridos y monto maximo reembolsable:
 
-| Type | Required Documents | Max Amount |
-|------|--------------------|------------|
-| Medicamento | FORMULA_MEDICA, FACTURA | $800,000 |
-| Procedimiento Ambulatorio | ORDEN_MEDICA, FACTURA | $2,500,000 |
-| Urgencias | HISTORIA_CLINICA_URGENCIAS, FACTURA | $3,500,000 |
-| Examen Diagnostico | ORDEN_MEDICA, RESULTADO_EXAMEN, FACTURA | $1,200,000 |
+| Tipo | Documentos Requeridos | Monto Maximo |
+|------|-----------------------|--------------|
+| Medicamento | FORMULA_MEDICA, FACTURA | $800.000 |
+| Procedimiento Ambulatorio | ORDEN_MEDICA, FACTURA | $2.500.000 |
+| Urgencias | HISTORIA_CLINICA_URGENCIAS, FACTURA | $3.500.000 |
+| Examen Diagnostico | ORDEN_MEDICA, RESULTADO_EXAMEN, FACTURA | $1.200.000 |
 
-Adding a new request type requires creating a new policy class implementing `IPoliticaTipoSolicitud` and registering it with the `ITipoSolicitudProvider` -- fully adhering to the Open/Closed Principle.
+Agregar un nuevo tipo de solicitud requiere crear una nueva clase de politica que implemente `IPoliticaTipoSolicitud` y registrarla en el `ITipoSolicitudProvider` -- cumpliendo completamente con el Principio Abierto/Cerrado.
