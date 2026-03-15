@@ -72,7 +72,7 @@ project/
 
 ## Vision General de la Arquitectura
 
-El sistema sigue una **Arquitectura Hexagonal (Puertos y Adaptadores)** organizada en capas claramente separadas:
+El sistema sigue una arquitectura organizada en capas claramente separadas:
 
 ```
 +----------------------------------------------+
