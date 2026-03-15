@@ -1,0 +1,5 @@
+from .politica_tipo_solicitud import IPoliticaTipoSolicitud
+from .medicamento_policy import MedicamentoPolicy
+from .procedimiento_policy import ProcedimientoAmbulatorioPolicy
+from .urgencias_policy import UrgenciasPolicy
+from .examen_policy import ExamenDiagnosticoPolicy

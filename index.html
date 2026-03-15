@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motor de Reglas de Reembolsos Médicos — Sustentación Arquitectónica</title>
+
+<!-- ============================== -->
+<!-- ESTILOS CSS EMBEBIDOS          -->
+<!-- ============================== -->
+<style>
+/* ===== RESET Y BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --azul-oscuro: #0f2b46;
+  --azul-medio: #1a3f6f;
+  --azul-acento: #2e7bd5;
+  --azul-claro: #e8f0fe;
+  --gris-100: #f7f8fa;
+  --gris-200: #e9ecef;
+  --gris-300: #ced4da;
+  --gris-500: #6c757d;
+  --gris-700: #495057;
+  --gris-900: #212529;
+  --blanco: #ffffff;
+  --verde: #28a745;
+  --rojo: #dc3545;
+  --naranja: #fd7e14;
+  --amarillo: #ffc107;
+  --teal: #20c997;
+  --sombra: 0 4px 24px rgba(15,43,70,.10);
+  --sombra-hover: 0 8px 32px rgba(15,43,70,.16);
+  --radio: 12px;
+  --transicion: .4s cubic-bezier(.25,.46,.45,.94);
+}
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--gris-900);
+  background: var(--gris-100);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ===== TIPOGRAFÍA ===== */
+h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; }
+h2 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); font-weight: 700; line-height: 1.2; }
+h3 { font-size: clamp(1.2rem, 2.5vw, 1.6rem); font-weight: 600; }
+h4 { font-size: 1.1rem; font-weight: 600; }
+p { margin-bottom: 1rem; }
+
+/* ===== BARRA DE PROGRESO SUPERIOR ===== */
+#progress-bar {
+  position: fixed; top: 0; left: 0; height: 4px; z-index: 10000;
+  background: linear-gradient(90deg, var(--azul-acento), var(--teal));
+  width: 0%; transition: width .15s linear;
+}
+
+/* ===== NAVEGACIÓN LATERAL ===== */
+#side-nav {
+  position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
+  z-index: 9999; display: flex; flex-direction: column; gap: 6px;
+}
+#side-nav a {
+  display: block; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--gris-300); transition: var(--transicion);
+  position: relative;
+}
+#side-nav a.active { background: var(--azul-acento); transform: scale(1.4); }
+#side-nav a .tooltip {
+  position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+  background: var(--azul-oscuro); color: var(--blanco); font-size: .72rem;
+  padding: 4px 10px; border-radius: 6px; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+#side-nav a:hover .tooltip { opacity: 1; }
+
+/* ===== MENÚ SUPERIOR ===== */
+#top-nav {
+  position: fixed; top: 4px; left: 0; width: 100%; z-index: 9998;
+  background: rgba(15,43,70,.92); backdrop-filter: blur(8px);
+  padding: 0 24px; display: flex; align-items: center; height: 52px;
+  transition: transform .3s;
+}
+#top-nav.hidden { transform: translateY(-100%); }
+#top-nav .brand {
+  color: var(--blanco); font-weight: 700; font-size: .95rem;
+  margin-right: auto; white-space: nowrap;
+}
+#top-nav .nav-links { display: flex; gap: 4px; overflow-x: auto; }
+#top-nav .nav-links a {
+  color: rgba(255,255,255,.75); text-decoration: none; font-size: .72rem;
+  padding: 6px 10px; border-radius: 6px; transition: var(--transicion);
+  white-space: nowrap;
+}
+#top-nav .nav-links a:hover,
+#top-nav .nav-links a.active { color: var(--blanco); background: rgba(255,255,255,.12); }
+
+/* ===== SECCIONES / SLIDES ===== */
+.slide {
+  min-height: 100vh; padding: 100px 5vw 80px;
+  display: flex; flex-direction: column; justify-content: center;
+  position: relative;
+}
+.slide-inner {
+  max-width: 1140px; margin: 0 auto; width: 100%;
+}
+
+/* ===== ANIMACIONES DE APARICIÓN ===== */
+.reveal {
+  opacity: 0; transform: translateY(40px);
+  transition: opacity .7s var(--transicion), transform .7s var(--transicion);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: .1s; }
+.reveal-delay-2 { transition-delay: .2s; }
+.reveal-delay-3 { transition-delay: .3s; }
+.reveal-delay-4 { transition-delay: .4s; }
+
+/* ===== PORTADA ===== */
+#portada {
+  background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul-medio) 60%, #1b4f8a 100%);
+  color: var(--blanco); text-align: center; position: relative; overflow: hidden;
+}
+#portada::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 70%, rgba(46,123,213,.25) 0%, transparent 60%),
+              radial-gradient(circle at 80% 20%, rgba(32,201,151,.15) 0%, transparent 50%);
+}
+#portada .slide-inner { position: relative; z-index: 1; }
+.portada-badge {
+  display: inline-block; padding: 8px 20px; border-radius: 30px;
+  background: rgba(255,255,255,.12); font-size: .85rem; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 24px; backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,.15);
+}
+.portada-titulo { margin-bottom: 16px; }
+.portada-subtitulo {
+  font-size: clamp(1rem, 2vw, 1.35rem); font-weight: 300; opacity: .85;
+  max-width: 700px; margin: 0 auto 40px;
+}
+.portada-contexto {
+  display: inline-flex; gap: 32px; flex-wrap: wrap; justify-content: center;
+  margin-top: 40px;
+}
+.portada-contexto .ctx-item {
+  text-align: center;
+}
+.portada-contexto .ctx-num {
+  font-size: 2.2rem; font-weight: 800; display: block;
+  background: linear-gradient(135deg, var(--azul-acento), var(--teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.portada-contexto .ctx-label { font-size: .8rem; opacity: .7; text-transform: uppercase; letter-spacing: .5px; }
+
+/* Motor visual en portada */
+.motor-visual {
+  margin-top: 48px; display: flex; justify-content: center; gap: 12px;
+  flex-wrap: wrap; align-items: center;
+}
+.motor-caja {
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  padding: 14px 22px; border-radius: var(--radio); font-size: .82rem;
+  font-weight: 600; backdrop-filter: blur(4px);
+}
+.motor-flecha { font-size: 1.3rem; opacity: .5; }
+
+/* ===== ETIQUETA DE SECCIÓN ===== */
+.section-label {
+  display: inline-block; font-size: .75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px; color: var(--azul-acento);
+  margin-bottom: 8px;
+}
+.section-title { margin-bottom: 12px; color: var(--azul-oscuro); }
+.section-desc {
+  font-size: 1.05rem; color: var(--gris-500); max-width: 720px; margin-bottom: 40px;
+}
+
+/* ===== TARJETAS ===== */
+.cards-grid {
+  display: grid; gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.card {
+  background: var(--blanco); border-radius: var(--radio); padding: 28px;
+  box-shadow: var(--sombra); transition: var(--transicion); border: 1px solid var(--gris-200);
+}
+.card:hover { box-shadow: var(--sombra-hover); transform: translateY(-4px); }
+.card-icon {
+  width: 48px; height: 48px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px; font-size: 1.3rem; font-weight: 800;
+}
+.card-icon.blue { background: var(--azul-claro); color: var(--azul-acento); }
+.card-icon.green { background: #e6f9f0; color: var(--verde); }
+.card-icon.orange { background: #fff3e0; color: var(--naranja); }
+.card-icon.red { background: #fde8ea; color: var(--rojo); }
+.card-icon.teal { background: #e0faf3; color: var(--teal); }
+.card h4 { margin-bottom: 8px; color: var(--azul-oscuro); }
+.card p { font-size: .9rem; color: var(--gris-500); margin-bottom: 0; }
+
+/* ===== HIGHLIGHT BOX ===== */
+.highlight-box {
+  background: var(--azul-claro); border-left: 4px solid var(--azul-acento);
+  padding: 20px 24px; border-radius: 0 var(--radio) var(--radio) 0;
+  margin: 24px 0; font-size: .95rem;
+}
+.highlight-box strong { color: var(--azul-oscuro); }
+
+/* ===== TABLAS ===== */
+.table-wrapper { overflow-x: auto; margin: 24px 0; }
+table {
+  width: 100%; border-collapse: collapse; background: var(--blanco);
+  border-radius: var(--radio); overflow: hidden; box-shadow: var(--sombra);
+}
+thead { background: var(--azul-oscuro); color: var(--blanco); }
+th { padding: 14px 18px; text-align: left; font-size: .82rem; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+td { padding: 12px 18px; border-bottom: 1px solid var(--gris-200); font-size: .9rem; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--azul-claro); }
+
+/* ===== TIMELINE DE ESTADOS ===== */
+.timeline {
+  display: flex; align-items: flex-start; justify-content: center;
+  gap: 0; margin: 40px 0; flex-wrap: wrap; position: relative;
+}
+.timeline-item {
+  display: flex; flex-direction: column; align-items: center; position: relative;
+  flex: 0 0 auto; padding: 0 8px;
+}
+.timeline-node {
+  width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: .7rem; font-weight: 700; color: var(--blanco);
+  text-align: center; line-height: 1.2; position: relative; z-index: 2;
+}
+.timeline-node.draft { background: var(--gris-500); }
+.timeline-node.submitted { background: var(--azul-acento); }
+.timeline-node.review { background: var(--naranja); }
+.timeline-node.approved { background: var(--verde); }
+.timeline-node.rejected { background: var(--rojo); }
+.timeline-action {
+  font-size: .68rem; color: var(--gris-500); margin-top: 8px; text-align: center;
+  font-weight: 600;
+}
+.timeline-arrow {
+  display: flex; align-items: center; color: var(--gris-300); font-size: 1.6rem;
+  padding-top: 18px;
+}
+.timeline-branch {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+
+/* ===== DIAGRAMA ARQUITECTÓNICO ===== */
+.arch-diagram {
+  display: flex; flex-direction: column; gap: 16px; margin: 32px 0;
+}
+.arch-layer {
+  display: flex; align-items: stretch; gap: 16px; flex-wrap: wrap;
+}
+.arch-box {
+  flex: 1; min-width: 200px; background: var(--blanco); border-radius: var(--radio);
+  padding: 20px; box-shadow: var(--sombra); border-top: 4px solid var(--azul-acento);
+  transition: var(--transicion);
+}
+.arch-box:hover { transform: translateY(-3px); box-shadow: var(--sombra-hover); }
+.arch-box.dominio { border-top-color: var(--azul-acento); }
+.arch-box.estados { border-top-color: var(--naranja); }
+.arch-box.reglas { border-top-color: var(--verde); }
+.arch-box.politicas { border-top-color: var(--teal); }
+.arch-box.servicios { border-top-color: var(--azul-oscuro); }
+.arch-box.puertos { border-top-color: var(--gris-500); }
+.arch-box h4 { font-size: .9rem; margin-bottom: 8px; }
+.arch-box ul { list-style: none; padding: 0; }
+.arch-box ul li {
+  font-size: .82rem; padding: 3px 0; color: var(--gris-700);
+  border-bottom: 1px dashed var(--gris-200);
+}
+.arch-box ul li:last-child { border-bottom: none; }
+
+/* ===== PRINCIPIO CARD ===== */
+.principio-card {
+  background: var(--blanco); border-radius: var(--radio); padding: 28px;
+  box-shadow: var(--sombra); margin-bottom: 24px;
+  border-left: 5px solid var(--azul-acento); transition: var(--transicion);
+}
+.principio-card:hover { box-shadow: var(--sombra-hover); }
+.principio-card .principio-header {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+}
+.principio-card .principio-sigla {
+  background: var(--azul-oscuro); color: var(--blanco); padding: 8px 14px;
+  border-radius: 8px; font-weight: 800; font-size: 1rem; min-width: 48px;
+  text-align: center;
+}
+.principio-card .principio-nombre { font-size: 1.1rem; font-weight: 700; color: var(--azul-oscuro); }
+.principio-card .principio-body { font-size: .92rem; color: var(--gris-700); }
+.principio-card .ejemplo {
+  background: var(--gris-100); border-radius: 8px; padding: 14px 18px;
+  margin-top: 12px; font-size: .85rem; border: 1px solid var(--gris-200);
+}
+.principio-card .ejemplo strong { color: var(--azul-acento); }
+.principio-card.grasp { border-left-color: var(--teal); }
+.principio-card.grasp .principio-sigla { background: #0d7a5f; }
+.principio-card.otros { border-left-color: var(--naranja); }
+.principio-card.otros .principio-sigla { background: var(--naranja); }
+
+/* ===== DIAGRAMA DE CLASES VISUAL ===== */
+.class-diagram {
+  display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;
+  margin: 32px 0; position: relative;
+}
+.class-box {
+  background: var(--blanco); border-radius: var(--radio); padding: 18px;
+  box-shadow: var(--sombra); min-width: 200px; max-width: 280px;
+  border-top: 4px solid var(--azul-acento); transition: var(--transicion);
+}
+.class-box:hover { transform: translateY(-3px); box-shadow: var(--sombra-hover); }
+.class-box .class-name {
+  font-weight: 700; font-size: .9rem; color: var(--azul-oscuro);
+  padding-bottom: 8px; border-bottom: 2px solid var(--gris-200); margin-bottom: 8px;
+  text-align: center;
+}
+.class-box .class-type {
+  font-size: .65rem; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--gris-500); text-align: center; margin-bottom: 4px;
+}
+.class-box ul { list-style: none; padding: 0; }
+.class-box ul li { font-size: .78rem; padding: 2px 0; color: var(--gris-700); }
+
+/* ===== REGLAS ENGINE DIAGRAM ===== */
+.engine-flow {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  flex-wrap: wrap; margin: 32px 0;
+}
+.engine-step {
+  background: var(--blanco); border-radius: var(--radio); padding: 20px;
+  box-shadow: var(--sombra); text-align: center; min-width: 140px;
+  transition: var(--transicion);
+}
+.engine-step:hover { transform: scale(1.04); }
+.engine-step .step-num {
+  background: var(--azul-acento); color: var(--blanco); width: 32px; height: 32px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .85rem; margin: 0 auto 10px;
+}
+.engine-step h4 { font-size: .85rem; margin-bottom: 4px; }
+.engine-step p { font-size: .75rem; color: var(--gris-500); margin-bottom: 0; }
+.engine-arrow { font-size: 1.5rem; color: var(--gris-300); }
+
+/* ===== DECISIONES ===== */
+.decision-grid {
+  display: grid; gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.decision-card {
+  background: var(--blanco); border-radius: var(--radio); padding: 24px;
+  box-shadow: var(--sombra); position: relative; overflow: hidden;
+}
+.decision-card::before {
+  content: '?'; position: absolute; top: -10px; right: -5px;
+  font-size: 5rem; font-weight: 900; color: var(--azul-claro); z-index: 0;
+}
+.decision-card > * { position: relative; z-index: 1; }
+.decision-card h4 { color: var(--azul-oscuro); margin-bottom: 8px; font-size: .95rem; }
+.decision-card p { font-size: .88rem; color: var(--gris-700); margin-bottom: 0; }
+
+/* ===== BENEFICIOS ===== */
+.beneficios-grid {
+  display: grid; gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.beneficio-item {
+  background: var(--blanco); border-radius: var(--radio); padding: 28px;
+  box-shadow: var(--sombra); text-align: center; transition: var(--transicion);
+}
+.beneficio-item:hover { transform: translateY(-4px); box-shadow: var(--sombra-hover); }
+.beneficio-icon {
+  width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; font-weight: 800;
+}
+.beneficio-item h4 { font-size: 1rem; margin-bottom: 6px; color: var(--azul-oscuro); }
+.beneficio-item p { font-size: .85rem; color: var(--gris-500); margin-bottom: 0; }
+
+/* ===== CIERRE ===== */
+#cierre {
+  background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul-medio) 60%, #1b4f8a 100%);
+  color: var(--blanco); text-align: center; position: relative; overflow: hidden;
+}
+#cierre::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 70% 30%, rgba(46,123,213,.2) 0%, transparent 60%);
+}
+#cierre .slide-inner { position: relative; z-index: 1; }
+.cierre-linea {
+  width: 60px; height: 3px; background: var(--teal); margin: 24px auto;
+  border-radius: 2px;
+}
+
+/* ===== SVG DIAGRAMS ===== */
+.svg-diagram { margin: 32px auto; max-width: 100%; overflow-x: auto; }
+.svg-diagram svg { width: 100%; height: auto; }
+
+/* ===== BADGES ===== */
+.badge {
+  display: inline-block; padding: 3px 10px; border-radius: 20px;
+  font-size: .72rem; font-weight: 600; margin: 2px;
+}
+.badge-blue { background: var(--azul-claro); color: var(--azul-acento); }
+.badge-green { background: #e6f9f0; color: var(--verde); }
+.badge-orange { background: #fff3e0; color: var(--naranja); }
+.badge-red { background: #fde8ea; color: var(--rojo); }
+.badge-teal { background: #e0faf3; color: #0d7a5f; }
+.badge-gray { background: var(--gris-200); color: var(--gris-700); }
+
+/* ===== TWO COLUMNS ===== */
+.two-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start;
+}
+
+/* ===== REGLA ROW ===== */
+.regla-row {
+  display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px;
+}
+.regla-num {
+  background: var(--azul-oscuro); color: var(--blanco); width: 36px; height: 36px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .85rem; flex-shrink: 0;
+}
+.regla-content h4 { font-size: .95rem; margin-bottom: 4px; color: var(--azul-oscuro); }
+.regla-content p { font-size: .88rem; color: var(--gris-700); margin-bottom: 0; }
+
+/* ===== RESTRICCIONES BOX ===== */
+.restriccion-list { list-style: none; padding: 0; }
+.restriccion-list li {
+  padding: 12px 16px; margin-bottom: 8px; border-radius: 8px;
+  background: var(--blanco); box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  display: flex; align-items: center; gap: 12px; font-size: .9rem;
+}
+.restriccion-icon {
+  width: 28px; height: 28px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: .8rem;
+  background: #fde8ea; color: var(--rojo); flex-shrink: 0; font-weight: 700;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .slide { padding: 80px 20px 60px; }
+  .two-cols { grid-template-columns: 1fr; }
+  #top-nav .nav-links { display: none; }
+  #side-nav { right: 8px; }
+  .timeline { flex-direction: column; align-items: center; }
+  .timeline-arrow { transform: rotate(90deg); padding-top: 0; }
+  .portada-contexto { gap: 16px; }
+  .arch-layer { flex-direction: column; }
+  .engine-flow { flex-direction: column; }
+  .engine-arrow { transform: rotate(90deg); }
+}
+
+@media (max-width: 480px) {
+  .cards-grid { grid-template-columns: 1fr; }
+  .beneficios-grid { grid-template-columns: 1fr; }
+  .decision-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== SEPARADOR VISUAL ===== */
+.section-divider {
+  width: 60px; height: 4px; border-radius: 2px; margin-bottom: 32px;
+  background: linear-gradient(90deg, var(--azul-acento), var(--teal));
+}
+
+/* Secciones alternas con fondo */
+.slide:nth-child(even) { background: var(--blanco); }
+.slide:nth-child(odd) { background: var(--gris-100); }
+
+/* ===== DIAGRAMA SVG ALTO NIVEL ===== */
+.diagram-alto-nivel {
+  background: var(--blanco); border-radius: var(--radio); padding: 32px;
+  box-shadow: var(--sombra); margin: 32px 0; overflow-x: auto;
+}
+</style>
+</head>
+<body>
+
+<!-- Barra de progreso superior -->
+<div id="progress-bar"></div>
+
+<!-- ============================== -->
+<!-- NAVEGACIÓN SUPERIOR            -->
+<!-- ============================== -->
+<nav id="top-nav">
+  <span class="brand">⚙ Motor de Reglas — Sustentación</span>
+  <div class="nav-links">
+    <a href="#portada">Portada</a>
+    <a href="#introduccion">Introducción</a>
+    <a href="#requerimientos">Requerimientos</a>
+    <a href="#arquitectura">Arquitectura</a>
+    <a href="#clases">Clases</a>
+    <a href="#estados">Estados</a>
+    <a href="#motor-reglas">Motor</a>
+    <a href="#solid">SOLID</a>
+    <a href="#grasp">GRASP</a>
+    <a href="#dry-kiss-yagni">DRY/KISS</a>
+    <a href="#decisiones">Decisiones</a>
+    <a href="#beneficios">Beneficios</a>
+    <a href="#conclusion">Conclusión</a>
+    <a href="#cierre">Cierre</a>
+  </div>
+</nav>
+
+<!-- ============================== -->
+<!-- NAVEGACIÓN LATERAL (DOTS)     -->
+<!-- ============================== -->
+<nav id="side-nav">
+  <a href="#portada"><span class="tooltip">Portada</span></a>
+  <a href="#introduccion"><span class="tooltip">Introducción</span></a>
+  <a href="#requerimientos"><span class="tooltip">Requerimientos</span></a>
+  <a href="#arquitectura"><span class="tooltip">Arquitectura</span></a>
+  <a href="#clases"><span class="tooltip">Clases</span></a>
+  <a href="#estados"><span class="tooltip">Estados</span></a>
+  <a href="#motor-reglas"><span class="tooltip">Motor de Reglas</span></a>
+  <a href="#solid"><span class="tooltip">SOLID</span></a>
+  <a href="#grasp"><span class="tooltip">GRASP</span></a>
+  <a href="#dry-kiss-yagni"><span class="tooltip">DRY / KISS / YAGNI</span></a>
+  <a href="#decisiones"><span class="tooltip">Decisiones</span></a>
+  <a href="#beneficios"><span class="tooltip">Beneficios</span></a>
+  <a href="#conclusion"><span class="tooltip">Conclusión</span></a>
+  <a href="#cierre"><span class="tooltip">Cierre</span></a>
+</nav>
+
+<!-- ====================================================== -->
+<!-- 1. PORTADA                                             -->
+<!-- ====================================================== -->
+<section id="portada" class="slide" data-nav="Portada">
+  <div class="slide-inner">
+    <div class="reveal">
+      <span class="portada-badge">Sustentación Final — Ingeniería de Software</span>
+    </div>
+    <h1 class="portada-titulo reveal reveal-delay-1">Motor de Reglas para<br>Reembolsos Médicos</h1>
+    <p class="portada-subtitulo reveal reveal-delay-2">
+      Diseño arquitectónico basado en principios SOLID, GRASP y buenas prácticas
+      de ingeniería para un componente desacoplado, extensible y mantenible.
+    </p>
+    <div class="reveal reveal-delay-3">
+      <div class="portada-contexto">
+        <div class="ctx-item"><span class="ctx-num">5</span><span class="ctx-label">Reglas de negocio</span></div>
+        <div class="ctx-item"><span class="ctx-num">5</span><span class="ctx-label">Estados del flujo</span></div>
+        <div class="ctx-item"><span class="ctx-num">4</span><span class="ctx-label">Tipos de solicitud</span></div>
+        <div class="ctx-item"><span class="ctx-num">6</span><span class="ctx-label">Capas de diseño</span></div>
+      </div>
+    </div>
+    <div class="motor-visual reveal reveal-delay-4">
+      <div class="motor-caja">Solicitud</div>
+      <span class="motor-flecha">→</span>
+      <div class="motor-caja">Motor de Reglas</div>
+      <span class="motor-flecha">→</span>
+      <div class="motor-caja">Evaluación</div>
+      <span class="motor-flecha">→</span>
+      <div class="motor-caja">Decisión</div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 2. INTRODUCCIÓN AL PROBLEMA                            -->
+<!-- ====================================================== -->
+<section id="introduccion" class="slide" data-nav="Introducción">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 01</span>
+    <h2 class="section-title reveal">Introducción al Problema</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">Comprender el alcance del reto es fundamental antes de proponer una solución.</p>
+
+    <div class="two-cols">
+      <div class="reveal">
+        <h3 style="margin-bottom:16px; color:var(--azul-oscuro);">¿Qué pide el reto?</h3>
+        <div class="highlight-box">
+          Diseñar un <strong>componente reutilizable</strong> que funcione como motor de reglas para gestionar solicitudes
+          de reembolso médico. Debe controlar estados, validar reglas de negocio y emitir resultados de evaluación.
+        </div>
+        <h3 style="margin:24px 0 16px; color:var(--azul-oscuro);">¿Qué NO es el reto?</h3>
+        <ul style="padding-left:20px; color:var(--gris-700); font-size:.92rem;">
+          <li>No es una aplicación completa con interfaz gráfica.</li>
+          <li>No requiere base de datos ni persistencia.</li>
+          <li>No es un sistema monolítico acoplado a un framework.</li>
+          <li>No es un CRUD tradicional.</li>
+        </ul>
+      </div>
+      <div class="reveal reveal-delay-2">
+        <h3 style="margin-bottom:16px; color:var(--azul-oscuro);">¿Qué se busca demostrar?</h3>
+        <div class="cards-grid" style="grid-template-columns:1fr;">
+          <div class="card">
+            <div class="card-icon blue">D</div>
+            <h4>Diseño orientado a objetos sólido</h4>
+            <p>Aplica principios SOLID y GRASP en cada decisión arquitectónica.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon green">C</div>
+            <h4>Componente desacoplado</h4>
+            <p>Independiente de interfaz, base de datos y framework externo.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon teal">E</div>
+            <h4>Extensibilidad real</h4>
+            <p>Permite agregar nuevos tipos, reglas o estados sin modificar código existente.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box reveal reveal-delay-3" style="margin-top:32px;">
+      <strong>Requisitos funcionales clave:</strong> Consultar acciones válidas según estado · Ejecutar transiciones controladas ·
+      Evaluar solicitudes mediante reglas de negocio · Exponer hallazgos y causas de rechazo.
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 3. REQUERIMIENTOS DEL DOMINIO                          -->
+<!-- ====================================================== -->
+<section id="requerimientos" class="slide" data-nav="Requerimientos">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 02</span>
+    <h2 class="section-title reveal">Requerimientos del Dominio</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">El dominio define cuatro tipos de solicitud, cinco estados, cinco acciones, cinco reglas obligatorias y restricciones estrictas de flujo.</p>
+
+    <!-- Tipos de solicitud -->
+    <h3 class="reveal" style="margin-bottom:16px; color: var(--azul-oscuro);">Tipos de Solicitud</h3>
+    <div class="cards-grid reveal">
+      <div class="card">
+        <div class="card-icon blue">💊</div>
+        <h4>Medicamento</h4>
+        <p>Fórmula médica + factura. Monto máximo: $800.000.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon green">🩺</div>
+        <h4>Procedimiento Ambulatorio</h4>
+        <p>Orden médica + factura. Monto máximo: $2.500.000.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon red">🚑</div>
+        <h4>Urgencias</h4>
+        <p>Historia clínica de urgencias + factura. Monto máximo: $3.500.000.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon orange">🔬</div>
+        <h4>Examen Diagnóstico</h4>
+        <p>Orden médica + resultado + factura. Monto máximo: $1.200.000.</p>
+      </div>
+    </div>
+
+    <!-- Tabla de estados y acciones -->
+    <h3 class="reveal" style="margin:40px 0 16px; color: var(--azul-oscuro);">Estados y Acciones</h3>
+    <div class="table-wrapper reveal">
+      <table>
+        <thead>
+          <tr><th>Estado</th><th>Acción que lo alcanza</th><th>Acciones disponibles</th><th>Tipo</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="badge badge-gray">Draft</span></td><td>— (inicial)</td><td>Submit</td><td>Transitorio</td></tr>
+          <tr><td><span class="badge badge-blue">Submitted</span></td><td>Submit</td><td>StartReview</td><td>Transitorio</td></tr>
+          <tr><td><span class="badge badge-orange">Under Review</span></td><td>StartReview</td><td>Evaluate → Approve / Reject</td><td>Transitorio</td></tr>
+          <tr><td><span class="badge badge-green">Approved</span></td><td>Approve</td><td>Ninguna</td><td>Terminal</td></tr>
+          <tr><td><span class="badge badge-red">Rejected</span></td><td>Reject</td><td>Ninguna</td><td>Terminal</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Reglas obligatorias -->
+    <h3 class="reveal" style="margin:40px 0 16px; color: var(--azul-oscuro);">Reglas de Negocio Obligatorias</h3>
+    <div class="reveal">
+      <div class="regla-row">
+        <div class="regla-num">R1</div>
+        <div class="regla-content">
+          <h4>Documentación mínima por tipo</h4>
+          <p>Cada tipo de solicitud exige documentos específicos que deben estar adjuntos.</p>
+        </div>
+      </div>
+      <div class="regla-row">
+        <div class="regla-num">R2</div>
+        <div class="regla-content">
+          <h4>Ventana de tiempo (60 días)</h4>
+          <p>La fecha del evento médico no puede superar los 60 días respecto a la fecha actual.</p>
+        </div>
+      </div>
+      <div class="regla-row">
+        <div class="regla-num">R3</div>
+        <div class="regla-content">
+          <h4>Monto máximo por tipo</h4>
+          <p>El valor solicitado no debe exceder el tope establecido para cada tipo de solicitud.</p>
+        </div>
+      </div>
+      <div class="regla-row">
+        <div class="regla-num">R4</div>
+        <div class="regla-content">
+          <h4>Prestador habilitado</h4>
+          <p>El prestador asociado a la solicitud debe existir en un catálogo de prestadores autorizados.</p>
+        </div>
+      </div>
+      <div class="regla-row">
+        <div class="regla-num">R5</div>
+        <div class="regla-content">
+          <h4>Consistencia básica de datos</h4>
+          <p>Valor > 0, paciente existente, prestador existente, tipo de solicitud definido.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restricciones -->
+    <h3 class="reveal" style="margin:40px 0 16px; color: var(--azul-oscuro);">Restricciones del Flujo</h3>
+    <ul class="restriccion-list reveal">
+      <li><span class="restriccion-icon">✕</span> No se puede evaluar una solicitud en estado Draft.</li>
+      <li><span class="restriccion-icon">✕</span> No se puede aprobar o rechazar sin evaluación previa.</li>
+      <li><span class="restriccion-icon">✕</span> No se pueden saltar estados intermedios.</li>
+      <li><span class="restriccion-icon">✕</span> Approved y Rejected son terminales: no admiten retroceso.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 4. VISIÓN GENERAL DE LA ARQUITECTURA                   -->
+<!-- ====================================================== -->
+<section id="arquitectura" class="slide" data-nav="Arquitectura">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 03</span>
+    <h2 class="section-title reveal">Visión General de la Arquitectura</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">
+      La solución se organiza en capas claramente delimitadas, cada una con una responsabilidad específica.
+      El componente no depende de infraestructura externa: toda dependencia se invierte mediante abstracciones.
+    </p>
+
+    <!-- Diagrama SVG de alto nivel -->
+    <div class="diagram-alto-nivel reveal">
+      <svg viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:'Segoe UI',sans-serif;">
+        <!-- Fachada -->
+        <rect x="250" y="10" width="400" height="56" rx="12" fill="#0f2b46"/>
+        <text x="450" y="44" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">MotorReglasFacade</text>
+        <text x="450" y="58" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">Punto de entrada único del componente</text>
+        <!-- Flechas fachada -->
+        <line x1="370" y1="66" x2="300" y2="100" stroke="#ced4da" stroke-width="2" marker-end="url(#arrowG)"/>
+        <line x1="450" y1="66" x2="450" y2="100" stroke="#ced4da" stroke-width="2" marker-end="url(#arrowG)"/>
+        <line x1="530" y1="66" x2="600" y2="100" stroke="#ced4da" stroke-width="2" marker-end="url(#arrowG)"/>
+        <!-- Servicios -->
+        <rect x="180" y="100" width="220" height="48" rx="10" fill="#2e7bd5"/>
+        <text x="290" y="130" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">EvaluadorSolicitudes</text>
+        <rect x="500" y="100" width="220" height="48" rx="10" fill="#2e7bd5"/>
+        <text x="610" y="130" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">EjecutorAcciones</text>
+        <!-- Flecha servicios -> capas -->
+        <line x1="290" y1="148" x2="220" y2="200" stroke="#ced4da" stroke-width="2" marker-end="url(#arrowG)"/>
+        <line x1="290" y1="148" x2="370" y2="200" stroke="#ced4da" stroke-width="2" marker-end="url(#arrowG)"/>
+        <line x1="610" y1="148" x2="560" y2="200" stroke="#ced4da" stroke-width="2" marker-end="url(#arrowG)"/>
+        <line x1="610" y1="148" x2="710" y2="200" stroke="#ced4da" stroke-width="2" marker-end="url(#arrowG)"/>
+        <!-- Reglas -->
+        <rect x="80" y="200" width="260" height="48" rx="10" fill="#28a745"/>
+        <text x="210" y="228" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Reglas de Evaluación (5)</text>
+        <!-- Políticas -->
+        <rect x="360" y="200" width="180" height="48" rx="10" fill="#20c997"/>
+        <text x="450" y="228" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Políticas por Tipo (4)</text>
+        <!-- Estados -->
+        <rect x="560" y="200" width="180" height="48" rx="10" fill="#fd7e14"/>
+        <text x="650" y="228" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Estados (5)</text>
+        <!-- Dominio central -->
+        <rect x="200" y="290" width="500" height="60" rx="12" fill="#e8f0fe" stroke="#2e7bd5" stroke-width="2"/>
+        <text x="450" y="318" text-anchor="middle" fill="#0f2b46" font-size="14" font-weight="700">Capa de Dominio</text>
+        <text x="450" y="338" text-anchor="middle" fill="#6c757d" font-size="10">SolicitudReembolso · Paciente · Prestador · DocumentoAdjunto · Enums</text>
+        <!-- Flechas hacia dominio -->
+        <line x1="210" y1="248" x2="350" y2="290" stroke="#ced4da" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <line x1="450" y1="248" x2="450" y2="290" stroke="#ced4da" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <line x1="650" y1="248" x2="550" y2="290" stroke="#ced4da" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <!-- Puertos -->
+        <rect x="200" y="390" width="500" height="50" rx="12" fill="#fff" stroke="#6c757d" stroke-width="2" stroke-dasharray="8,4"/>
+        <text x="450" y="420" text-anchor="middle" fill="#495057" font-size="13" font-weight="600">Puertos / Abstracciones Externas</text>
+        <text x="450" y="436" text-anchor="middle" fill="#6c757d" font-size="10">IClock · IPrestadorHabilitadoCatalog · IPoliticaTipoSolicitudProvider</text>
+        <line x1="450" y1="350" x2="450" y2="390" stroke="#6c757d" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <!-- Infraestructura externa -->
+        <rect x="300" y="470" width="300" height="40" rx="10" fill="#f7f8fa" stroke="#ced4da" stroke-width="1.5"/>
+        <text x="450" y="496" text-anchor="middle" fill="#6c757d" font-size="11" font-weight="500">Infraestructura externa (fuera del componente)</text>
+        <line x1="450" y1="440" x2="450" y2="470" stroke="#ced4da" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <!-- Arrow marker -->
+        <defs>
+          <marker id="arrowG" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#ced4da"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Detalle por capa -->
+    <h3 class="reveal" style="margin:24px 0 16px; color: var(--azul-oscuro);">Detalle por Capa</h3>
+    <div class="arch-diagram reveal">
+      <div class="arch-layer">
+        <div class="arch-box servicios">
+          <h4>🔷 Servicios de Aplicación</h4>
+          <ul>
+            <li>MotorReglasFacade</li>
+            <li>EvaluadorSolicitudes</li>
+            <li>EjecutorAcciones</li>
+          </ul>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-box reglas">
+          <h4>✅ Reglas de Evaluación</h4>
+          <ul>
+            <li>ReglaDocumentacionMinima</li>
+            <li>ReglaVentanaTiempo</li>
+            <li>ReglaMontoMaximo</li>
+            <li>ReglaPrestadorHabilitado</li>
+            <li>ReglaConsistenciaDatos</li>
+          </ul>
+        </div>
+        <div class="arch-box politicas">
+          <h4>📋 Políticas por Tipo</h4>
+          <ul>
+            <li>MedicamentoPolicy</li>
+            <li>ProcedimientoAmbulatorioPolicy</li>
+            <li>UrgenciasPolicy</li>
+            <li>ExamenDiagnosticoPolicy</li>
+          </ul>
+        </div>
+        <div class="arch-box estados">
+          <h4>🔶 Estados (Polimórficos)</h4>
+          <ul>
+            <li>EstadoSolicitud (interfaz)</li>
+            <li>DraftState</li>
+            <li>SubmittedState</li>
+            <li>UnderReviewState</li>
+            <li>ApprovedState / RejectedState</li>
+          </ul>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-box dominio">
+          <h4>🏛 Capa de Dominio</h4>
+          <ul>
+            <li>SolicitudReembolso</li>
+            <li>Paciente · Prestador</li>
+            <li>DocumentoAdjunto</li>
+            <li>ResultadoEvaluacion · HallazgoRegla</li>
+            <li>ResultadoAccion</li>
+            <li>Enums: TipoSolicitud, AccionSolicitud, DecisionEvaluacion</li>
+          </ul>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-box puertos">
+          <h4>🔌 Puertos Externos (Abstracciones)</h4>
+          <ul>
+            <li>IClock — abstracción del reloj del sistema</li>
+            <li>IPrestadorHabilitadoCatalog — catálogo de prestadores</li>
+            <li>IPoliticaTipoSolicitudProvider — proveedor de políticas</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 5. MODELO DE CLASES / RESPONSABILIDADES                -->
+<!-- ====================================================== -->
+<section id="clases" class="slide" data-nav="Clases">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 04</span>
+    <h2 class="section-title reveal">Modelo de Clases y Responsabilidades</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">Cada clase tiene una responsabilidad única y bien delimitada. A continuación, se presenta el mapa de clases principales y sus relaciones.</p>
+
+    <div class="class-diagram reveal">
+      <!-- Entidad central -->
+      <div class="class-box" style="border-top-color:var(--azul-acento); min-width:260px;">
+        <div class="class-type">Entidad Central</div>
+        <div class="class-name">SolicitudReembolso</div>
+        <ul>
+          <li>• id, fechaEvento, valorSolicitado</li>
+          <li>• tipo: TipoSolicitud</li>
+          <li>• estado: EstadoSolicitud</li>
+          <li>• paciente: Paciente</li>
+          <li>• prestador: Prestador</li>
+          <li>• documentos: DocumentoAdjunto[]</li>
+          <li>• resultadoEvaluacion: ResultadoEvaluacion</li>
+        </ul>
+      </div>
+      <!-- Estados -->
+      <div class="class-box" style="border-top-color:var(--naranja);">
+        <div class="class-type">Interfaz + Implementaciones</div>
+        <div class="class-name">EstadoSolicitud</div>
+        <ul>
+          <li>• obtenerAccionesValidas()</li>
+          <li>• ejecutarTransicion(accion)</li>
+          <li>─────────────</li>
+          <li>▸ DraftState</li>
+          <li>▸ SubmittedState</li>
+          <li>▸ UnderReviewState</li>
+          <li>▸ ApprovedState</li>
+          <li>▸ RejectedState</li>
+        </ul>
+      </div>
+      <!-- Reglas -->
+      <div class="class-box" style="border-top-color:var(--verde);">
+        <div class="class-type">Interfaz + Implementaciones</div>
+        <div class="class-name">ReglaEvaluacion</div>
+        <ul>
+          <li>• evaluar(solicitud, politica)</li>
+          <li>─────────────</li>
+          <li>▸ ReglaDocumentacionMinima</li>
+          <li>▸ ReglaVentanaTiempo</li>
+          <li>▸ ReglaMontoMaximo</li>
+          <li>▸ ReglaPrestadorHabilitado</li>
+          <li>▸ ReglaConsistenciaDatos</li>
+        </ul>
+      </div>
+      <!-- Políticas -->
+      <div class="class-box" style="border-top-color:var(--teal);">
+        <div class="class-type">Interfaz + Implementaciones</div>
+        <div class="class-name">PoliticaTipoSolicitud</div>
+        <ul>
+          <li>• obtenerDocumentosRequeridos()</li>
+          <li>• obtenerMontoMaximo()</li>
+          <li>─────────────</li>
+          <li>▸ MedicamentoPolicy</li>
+          <li>▸ ProcedimientoAmbulatorioPolicy</li>
+          <li>▸ UrgenciasPolicy</li>
+          <li>▸ ExamenDiagnosticoPolicy</li>
+        </ul>
+      </div>
+      <!-- Servicios -->
+      <div class="class-box" style="border-top-color:var(--azul-oscuro);">
+        <div class="class-type">Servicio</div>
+        <div class="class-name">MotorReglasFacade</div>
+        <ul>
+          <li>• consultarAcciones(solicitud)</li>
+          <li>• ejecutarAccion(solicitud, accion)</li>
+          <li>• evaluarSolicitud(solicitud)</li>
+          <li>─────────────</li>
+          <li>Delega a EvaluadorSolicitudes</li>
+          <li>Delega a EjecutorAcciones</li>
+        </ul>
+      </div>
+      <div class="class-box" style="border-top-color:var(--azul-medio);">
+        <div class="class-type">Servicio</div>
+        <div class="class-name">EvaluadorSolicitudes</div>
+        <ul>
+          <li>• evaluar(solicitud): ResultadoEvaluacion</li>
+          <li>─────────────</li>
+          <li>Ejecuta cada ReglaEvaluacion</li>
+          <li>Construye lista de HallazgoRegla</li>
+          <li>Emite DecisionEvaluacion</li>
+        </ul>
+      </div>
+      <div class="class-box" style="border-top-color:var(--azul-medio);">
+        <div class="class-type">Servicio</div>
+        <div class="class-name">EjecutorAcciones</div>
+        <ul>
+          <li>• ejecutar(solicitud, accion): ResultadoAccion</li>
+          <li>─────────────</li>
+          <li>Consulta acciones válidas al estado</li>
+          <li>Delega la transición al estado actual</li>
+        </ul>
+      </div>
+      <!-- Resultados -->
+      <div class="class-box" style="border-top-color:var(--gris-500);">
+        <div class="class-type">Value Objects</div>
+        <div class="class-name">Resultados</div>
+        <ul>
+          <li>▸ ResultadoEvaluacion</li>
+          <li>&nbsp;&nbsp;• decision, hallazgos[]</li>
+          <li>▸ HallazgoRegla</li>
+          <li>&nbsp;&nbsp;• regla, descripcion, aprobado</li>
+          <li>▸ ResultadoAccion</li>
+          <li>&nbsp;&nbsp;• exito, mensaje, nuevoEstado</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="highlight-box reveal">
+      <strong>Relaciones clave:</strong> SolicitudReembolso contiene un EstadoSolicitud (composición). EvaluadorSolicitudes depende de ReglaEvaluacion[] y PoliticaTipoSolicitud.
+      EjecutorAcciones depende de EstadoSolicitud. MotorReglasFacade orquesta ambos servicios como punto único de entrada.
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 6. FLUJO DE ESTADOS                                    -->
+<!-- ====================================================== -->
+<section id="estados" class="slide" data-nav="Estados">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 05</span>
+    <h2 class="section-title reveal">Flujo de Estados y Transiciones</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">Las transiciones de estado se controlan mediante el patrón State: cada estado conoce sus acciones válidas y determina la transición permitida.</p>
+
+    <!-- Timeline visual -->
+    <div class="timeline reveal">
+      <div class="timeline-item">
+        <div class="timeline-node draft">Draft</div>
+        <div class="timeline-action">Estado inicial</div>
+      </div>
+      <div class="timeline-arrow">→</div>
+      <div class="timeline-item">
+        <div class="timeline-node submitted">Submitted</div>
+        <div class="timeline-action">Submit</div>
+      </div>
+      <div class="timeline-arrow">→</div>
+      <div class="timeline-item">
+        <div class="timeline-node review">Under<br>Review</div>
+        <div class="timeline-action">StartReview</div>
+      </div>
+      <div class="timeline-arrow">→</div>
+      <div class="timeline-branch">
+        <div class="timeline-item">
+          <div class="timeline-node approved">Approved</div>
+          <div class="timeline-action">Approve</div>
+        </div>
+        <div style="font-size:.75rem; color:var(--gris-500); font-weight:600;">ó</div>
+        <div class="timeline-item">
+          <div class="timeline-node rejected">Rejected</div>
+          <div class="timeline-action">Reject</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box reveal" style="margin-top:24px;">
+      <strong>Nota:</strong> La acción <em>Evaluate</em> se ejecuta dentro del estado Under Review y determina el resultado (aprobable o rechazable).
+      Luego, según la decisión, se ejecuta <em>Approve</em> o <em>Reject</em>. Ambos son estados terminales e irreversibles.
+    </div>
+
+    <!-- Tabla detalle de transiciones -->
+    <h3 class="reveal" style="margin:40px 0 16px; color: var(--azul-oscuro);">Detalle de Transiciones por Estado</h3>
+    <div class="table-wrapper reveal">
+      <table>
+        <thead>
+          <tr><th>Estado Actual</th><th>Acción Permitida</th><th>Estado Siguiente</th><th>Condición</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Draft</td><td>Submit</td><td>Submitted</td><td>Datos mínimos presentes</td></tr>
+          <tr><td>Submitted</td><td>StartReview</td><td>Under Review</td><td>Solicitud enviada</td></tr>
+          <tr><td>Under Review</td><td>Evaluate</td><td>Under Review (evaluada)</td><td>Se ejecutan las reglas</td></tr>
+          <tr><td>Under Review</td><td>Approve</td><td>Approved</td><td>Evaluación aprobatoria previa</td></tr>
+          <tr><td>Under Review</td><td>Reject</td><td>Rejected</td><td>Evaluación con hallazgos de rechazo</td></tr>
+          <tr><td>Approved</td><td>—</td><td>—</td><td>Estado terminal</td></tr>
+          <tr><td>Rejected</td><td>—</td><td>—</td><td>Estado terminal</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards-grid reveal" style="margin-top:32px;">
+      <div class="card">
+        <div class="card-icon orange">S</div>
+        <h4>Patrón State</h4>
+        <p>Cada estado es una clase que implementa la interfaz EstadoSolicitud. Esto elimina condicionales complejos y distribuye la lógica de transición.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon red">T</div>
+        <h4>Estados Terminales</h4>
+        <p>ApprovedState y RejectedState no permiten ninguna acción. Son puntos finales e inmutables del ciclo de vida de la solicitud.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon blue">V</div>
+        <h4>Validación por Estado</h4>
+        <p>Cada estado define sus acciones válidas. El EjecutorAcciones consulta al estado antes de ejecutar cualquier transición.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 7. MOTOR DE EVALUACIÓN DE REGLAS                       -->
+<!-- ====================================================== -->
+<section id="motor-reglas" class="slide" data-nav="Motor de Reglas">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 06</span>
+    <h2 class="section-title reveal">Motor de Evaluación de Reglas</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">El EvaluadorSolicitudes recorre secuencialmente cada regla, recopila hallazgos y emite una decisión final.</p>
+
+    <!-- Flujo del motor -->
+    <div class="engine-flow reveal">
+      <div class="engine-step">
+        <div class="step-num">1</div>
+        <h4>Recibir solicitud</h4>
+        <p>El motor recibe la solicitud a evaluar.</p>
+      </div>
+      <div class="engine-arrow">→</div>
+      <div class="engine-step">
+        <div class="step-num">2</div>
+        <h4>Obtener política</h4>
+        <p>Se resuelve la política según el tipo de solicitud.</p>
+      </div>
+      <div class="engine-arrow">→</div>
+      <div class="engine-step">
+        <div class="step-num">3</div>
+        <h4>Ejecutar reglas</h4>
+        <p>Cada ReglaEvaluacion se evalúa y genera un hallazgo.</p>
+      </div>
+      <div class="engine-arrow">→</div>
+      <div class="engine-step">
+        <div class="step-num">4</div>
+        <h4>Recopilar hallazgos</h4>
+        <p>Todos los HallazgoRegla se agrupan en una lista.</p>
+      </div>
+      <div class="engine-arrow">→</div>
+      <div class="engine-step">
+        <div class="step-num">5</div>
+        <h4>Emitir decisión</h4>
+        <p>Se determina si es aprobable o rechazable.</p>
+      </div>
+    </div>
+
+    <div class="two-cols reveal" style="margin-top:40px;">
+      <div>
+        <h3 style="margin-bottom:16px; color: var(--azul-oscuro);">¿Qué es un Hallazgo?</h3>
+        <p style="font-size:.92rem; color:var(--gris-700);">
+          Un <strong>HallazgoRegla</strong> es el resultado individual de evaluar una regla sobre una solicitud.
+          Contiene la identificación de la regla que lo generó, una descripción del resultado y un indicador de si la regla
+          fue cumplida o no.
+        </p>
+        <div class="highlight-box">
+          <strong>Ejemplo:</strong> La regla ReglaVentanaTiempo evalúa la fecha del evento. Si han pasado 75 días, genera un hallazgo negativo:
+          <em>"La fecha del evento excede la ventana de 60 días permitida."</em>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:16px; color: var(--azul-oscuro);">Decisión Final</h3>
+        <div class="cards-grid" style="grid-template-columns:1fr;">
+          <div class="card" style="border-left:4px solid var(--verde);">
+            <h4 style="color:var(--verde);">✔ Aprobable</h4>
+            <p>Todas las reglas se cumplen. No hay hallazgos negativos. La solicitud puede ser aprobada.</p>
+          </div>
+          <div class="card" style="border-left:4px solid var(--rojo);">
+            <h4 style="color:var(--rojo);">✕ Rechazable</h4>
+            <p>Al menos una regla genera un hallazgo negativo. Los hallazgos se exponen como causas del rechazo.</p>
+          </div>
+        </div>
+        <p style="font-size:.88rem; color:var(--gris-500); margin-top:16px;">
+          La decisión se almacena en <strong>ResultadoEvaluacion</strong> junto con la lista completa de hallazgos,
+          permitiendo transparencia total sobre las causas de aceptación o rechazo.
+        </p>
+      </div>
+    </div>
+
+    <!-- Tabla de reglas vs hallazgos -->
+    <h3 class="reveal" style="margin:40px 0 16px; color: var(--azul-oscuro);">Mapa de Reglas y Hallazgos</h3>
+    <div class="table-wrapper reveal">
+      <table>
+        <thead>
+          <tr><th>Regla</th><th>Valida</th><th>Hallazgo Negativo (ejemplo)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>ReglaConsistenciaDatos</td><td>Datos mínimos existentes</td><td>"No se proporcionó paciente"</td></tr>
+          <tr><td>ReglaDocumentacionMinima</td><td>Documentos requeridos adjuntos</td><td>"Falta factura para tipo Medicamento"</td></tr>
+          <tr><td>ReglaVentanaTiempo</td><td>Fecha evento ≤ 60 días</td><td>"Fecha del evento excede ventana de 60 días"</td></tr>
+          <tr><td>ReglaMontoMaximo</td><td>Valor ≤ tope del tipo</td><td>"Monto $2.000.000 excede tope de $800.000"</td></tr>
+          <tr><td>ReglaPrestadorHabilitado</td><td>Prestador en catálogo</td><td>"Prestador no registrado en catálogo habilitado"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 8. PRINCIPIOS SOLID                                    -->
+<!-- ====================================================== -->
+<section id="solid" class="slide" data-nav="SOLID">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 07</span>
+    <h2 class="section-title reveal">Aplicación de Principios SOLID</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">Cada principio SOLID se aplica de forma deliberada en el diseño arquitectónico, asegurando un componente robusto y profesional.</p>
+
+    <!-- SRP -->
+    <div class="principio-card reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">S</div>
+        <div class="principio-nombre">Single Responsibility Principle (SRP)</div>
+      </div>
+      <div class="principio-body">
+        <p>Cada clase tiene una única razón para cambiar. La responsabilidad de evaluar reglas recae exclusivamente en
+        <strong>EvaluadorSolicitudes</strong>; la de controlar transiciones, en <strong>EjecutorAcciones</strong>;
+        la de orquestar, en <strong>MotorReglasFacade</strong>. Ninguna clase acumula responsabilidades ajenas.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo concreto:</strong> ReglaMontoMaximo solo valida que el monto no exceda el tope. No consulta documentos,
+          no verifica prestadores, no gestiona estados. Si cambia la lógica de montos, solo esta clase se modifica.
+        </div>
+      </div>
+    </div>
+
+    <!-- OCP -->
+    <div class="principio-card reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">O</div>
+        <div class="principio-nombre">Open/Closed Principle (OCP)</div>
+      </div>
+      <div class="principio-body">
+        <p>El sistema está abierto a la extensión y cerrado a la modificación. Para agregar una nueva regla de negocio,
+        basta con crear una nueva clase que implemente <strong>ReglaEvaluacion</strong> y registrarla. No se modifica
+        ningún código existente.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo concreto:</strong> Si mañana se requiere validar que el paciente sea mayor de edad, se crea
+          ReglaEdadMinimaPaciente implementando la interfaz ReglaEvaluacion. El EvaluadorSolicitudes la ejecutará
+          sin necesidad de modificar su código interno.
+        </div>
+      </div>
+    </div>
+
+    <!-- LSP -->
+    <div class="principio-card reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">L</div>
+        <div class="principio-nombre">Liskov Substitution Principle (LSP)</div>
+      </div>
+      <div class="principio-body">
+        <p>Cualquier implementación de <strong>EstadoSolicitud</strong> o <strong>ReglaEvaluacion</strong> puede sustituir a otra
+        sin alterar el comportamiento esperado del sistema. El EvaluadorSolicitudes no necesita conocer qué regla concreta
+        está ejecutando.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo concreto:</strong> El EjecutorAcciones trabaja con la interfaz EstadoSolicitud. Ya sea que el estado actual
+          sea DraftState o UnderReviewState, el contrato se respeta: ambos responden a obtenerAccionesValidas() y ejecutarTransicion()
+          de forma coherente con su semántica.
+        </div>
+      </div>
+    </div>
+
+    <!-- ISP -->
+    <div class="principio-card reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">I</div>
+        <div class="principio-nombre">Interface Segregation Principle (ISP)</div>
+      </div>
+      <div class="principio-body">
+        <p>Las interfaces son específicas y cohesivas. <strong>ReglaEvaluacion</strong> expone solo el método evaluar().
+        <strong>EstadoSolicitud</strong> expone solo métodos relacionados con el estado. Los puertos externos (IClock,
+        IPrestadorHabilitadoCatalog) son interfaces mínimas y orientadas al consumidor.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo concreto:</strong> IClock expone únicamente la capacidad de obtener la fecha actual. No obliga al implementador
+          a proveer zonas horarias, formateo o funcionalidades ajenas. Cada interfaz se diseña según lo que el consumidor necesita, no según
+          lo que el proveedor puede ofrecer.
+        </div>
+      </div>
+    </div>
+
+    <!-- DIP -->
+    <div class="principio-card reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">D</div>
+        <div class="principio-nombre">Dependency Inversion Principle (DIP)</div>
+      </div>
+      <div class="principio-body">
+        <p>Los módulos de alto nivel no dependen de módulos de bajo nivel; ambos dependen de abstracciones. El
+        <strong>EvaluadorSolicitudes</strong> depende de la interfaz ReglaEvaluacion, no de implementaciones concretas.
+        Los puertos externos (IClock, IPrestadorHabilitadoCatalog) son abstracciones que se inyectan desde fuera.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo concreto:</strong> ReglaVentanaTiempo recibe una instancia de IClock inyectada. En producción puede ser
+          un reloj real del sistema; en pruebas, un reloj simulado con fecha fija. La regla nunca instancia directamente
+          una dependencia de infraestructura.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 9. PRINCIPIOS GRASP                                    -->
+<!-- ====================================================== -->
+<section id="grasp" class="slide" data-nav="GRASP">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 08</span>
+    <h2 class="section-title reveal">Aplicación de Principios GRASP</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">Los principios GRASP guían la asignación de responsabilidades a las clases del diseño.</p>
+
+    <!-- High Cohesion -->
+    <div class="principio-card grasp reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">HC</div>
+        <div class="principio-nombre">High Cohesion (Alta Cohesión)</div>
+      </div>
+      <div class="principio-body">
+        <p>Cada clase del diseño tiene un conjunto coherente y enfocado de responsabilidades. Las reglas solo evalúan,
+        los estados solo gestionan transiciones, los servicios solo orquestan.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo:</strong> EvaluadorSolicitudes solo evalúa reglas y construye resultados. No gestiona estados, no
+          controla transiciones, no accede a infraestructura directamente. Su cohesión es máxima.
+        </div>
+      </div>
+    </div>
+
+    <!-- Low Coupling -->
+    <div class="principio-card grasp reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">LC</div>
+        <div class="principio-nombre">Low Coupling (Bajo Acoplamiento)</div>
+      </div>
+      <div class="principio-body">
+        <p>El acoplamiento entre clases se minimiza al depender de interfaces y abstracciones en lugar de implementaciones concretas.
+        Los puertos externos garantizan que el componente no se acopla a infraestructura real.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo:</strong> ReglaPrestadorHabilitado depende de IPrestadorHabilitadoCatalog (interfaz), no de una base
+          de datos, un servicio REST o un archivo CSV. Cambiar la fuente de datos no afecta a la regla.
+        </div>
+      </div>
+    </div>
+
+    <!-- Polymorphism -->
+    <div class="principio-card grasp reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">PO</div>
+        <div class="principio-nombre">Polymorphism (Polimorfismo)</div>
+      </div>
+      <div class="principio-body">
+        <p>Se usa polimorfismo para evitar condicionales extensos. En lugar de un switch/case sobre el estado actual, cada
+        estado implementa su propio comportamiento. Lo mismo aplica para reglas y políticas.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo:</strong> En vez de <code>if (estado == "Draft") ... else if (estado == "Submitted") ...</code>,
+          el sistema invoca <code>estado.obtenerAccionesValidas()</code> y cada clase de estado responde según su lógica propia.
+        </div>
+      </div>
+    </div>
+
+    <!-- Controller -->
+    <div class="principio-card grasp reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">CO</div>
+        <div class="principio-nombre">Controller (Controlador)</div>
+      </div>
+      <div class="principio-body">
+        <p>MotorReglasFacade actúa como controlador del caso de uso. Recibe las solicitudes externas, delega el trabajo
+        a los servicios especializados y devuelve el resultado. No contiene lógica de negocio directa.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo:</strong> Cuando un cliente invoca <code>motorReglas.evaluarSolicitud(solicitud)</code>, la fachada
+          delega a EvaluadorSolicitudes. Si invoca <code>ejecutarAccion(solicitud, accion)</code>, delega a EjecutorAcciones.
+          La fachada coordina, no ejecuta.
+        </div>
+      </div>
+    </div>
+
+    <!-- Creator -->
+    <div class="principio-card grasp reveal">
+      <div class="principio-header">
+        <div class="principio-sigla">CR</div>
+        <div class="principio-nombre">Creator (Creador)</div>
+      </div>
+      <div class="principio-body">
+        <p>Cada clase crea los objetos que necesita y que naturalmente le pertenecen. El EvaluadorSolicitudes crea los objetos
+        ResultadoEvaluacion y HallazgoRegla como parte de su proceso de evaluación.</p>
+        <div class="ejemplo">
+          <strong>Ejemplo:</strong> Es el EvaluadorSolicitudes quien tiene los datos y el contexto para construir un
+          ResultadoEvaluacion con su lista de hallazgos. Ninguna otra clase tiene la información necesaria para crearlo correctamente.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 10. DRY, KISS, YAGNI                                   -->
+<!-- ====================================================== -->
+<section id="dry-kiss-yagni" class="slide" data-nav="DRY/KISS/YAGNI">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 09</span>
+    <h2 class="section-title reveal">Aplicación de DRY, KISS y YAGNI</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">Estos tres principios complementarios guían las decisiones de diseño hacia la simplicidad y la eficiencia.</p>
+
+    <div class="cards-grid reveal" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+
+      <!-- DRY -->
+      <div class="principio-card otros" style="margin-bottom:0;">
+        <div class="principio-header">
+          <div class="principio-sigla">DRY</div>
+          <div class="principio-nombre">Don't Repeat Yourself</div>
+        </div>
+        <div class="principio-body">
+          <p>Toda lógica tiene un único punto de definición. No se duplican reglas, políticas ni validaciones de estado.</p>
+          <div class="ejemplo">
+            <strong>Ejemplo 1:</strong> Los documentos requeridos y montos máximos se definen una sola vez en cada PoliticaTipoSolicitud.
+            Las reglas que los necesitan consultan la política en lugar de redefinir esos datos internamente.
+          </div>
+          <div class="ejemplo" style="margin-top:8px;">
+            <strong>Ejemplo 2:</strong> La lógica de "qué acciones son válidas" vive exclusivamente en cada implementación de EstadoSolicitud.
+            Ningún servicio duplica esa información.
+          </div>
+        </div>
+      </div>
+
+      <!-- KISS -->
+      <div class="principio-card otros" style="margin-bottom:0; border-left-color: var(--teal);">
+        <div class="principio-header">
+          <div class="principio-sigla" style="background:var(--teal);">KISS</div>
+          <div class="principio-nombre">Keep It Simple, Stupid</div>
+        </div>
+        <div class="principio-body">
+          <p>El diseño es directo y comprensible. No se introducen patrones por moda ni abstracciones innecesarias.
+          Cada patrón utilizado resuelve un problema concreto.</p>
+          <div class="ejemplo">
+            <strong>Ejemplo 1:</strong> El patrón State se usa porque hay transiciones reales entre estados con comportamiento diferente,
+            no como ejercicio académico. Sin este patrón, habría condicionales extensos y frágiles.
+          </div>
+          <div class="ejemplo" style="margin-top:8px;">
+            <strong>Ejemplo 2:</strong> La fachada MotorReglasFacade expone solo tres métodos claros: consultarAcciones, ejecutarAccion y
+            evaluarSolicitud. La interfaz pública es mínima y comprensible.
+          </div>
+        </div>
+      </div>
+
+      <!-- YAGNI -->
+      <div class="principio-card otros" style="margin-bottom:0; border-left-color: var(--azul-medio);">
+        <div class="principio-header">
+          <div class="principio-sigla" style="background:var(--azul-medio);">YAGNI</div>
+          <div class="principio-nombre">You Aren't Gonna Need It</div>
+        </div>
+        <div class="principio-body">
+          <p>Solo se implementa lo que el reto exige. No se anticipan funcionalidades hipotéticas como historial de cambios,
+          notificaciones o reportes. La extensibilidad está garantizada por el diseño, no por código preventivo.</p>
+          <div class="ejemplo">
+            <strong>Ejemplo 1:</strong> No se implementa un sistema de auditoría ni de eventos. Si en el futuro se necesita, las interfaces
+            existentes permiten añadirlo sin refactorizar el núcleo.
+          </div>
+          <div class="ejemplo" style="margin-top:8px;">
+            <strong>Ejemplo 2:</strong> No se crean repositorios, DTOs de transferencia ni capas de serialización.
+            El componente es un motor de reglas puro: recibe objetos de dominio, los evalúa y devuelve resultados.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box reveal" style="margin-top:32px;">
+      <strong>Síntesis:</strong> DRY evita la duplicación; KISS asegura que el diseño sea comprensible;
+      YAGNI impide la sobreingeniería. Juntos, producen un componente enfocado, limpio y fácil de mantener.
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 11. DECISIONES ARQUITECTÓNICAS                         -->
+<!-- ====================================================== -->
+<section id="decisiones" class="slide" data-nav="Decisiones">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 10</span>
+    <h2 class="section-title reveal">Decisiones Arquitectónicas Clave</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">Cada decisión de diseño responde a un razonamiento deliberado. A continuación se justifican las más relevantes.</p>
+
+    <div class="decision-grid reveal">
+      <div class="decision-card">
+        <h4>¿Por qué una sola entidad SolicitudReembolso?</h4>
+        <p>SolicitudReembolso es la entidad raíz del dominio: representa el concepto central alrededor del cual giran todas las operaciones.
+        Centralizar su definición evita redundancia y asegura un modelo conceptual claro y cohesivo. Todas las reglas, estados y
+        servicios operan sobre esta entidad, lo cual simplifica el diseño.</p>
+      </div>
+      <div class="decision-card">
+        <h4>¿Por qué políticas por tipo de solicitud?</h4>
+        <p>Los requisitos de documentación y montos máximos varían según el tipo de solicitud. Encapsular estas variaciones en
+        políticas (MedicamentoPolicy, UrgenciasPolicy, etc.) permite que las reglas de evaluación sean genéricas y reutilizables.
+        Agregar un nuevo tipo de solicitud solo requiere crear una nueva política, sin tocar reglas existentes.</p>
+      </div>
+      <div class="decision-card">
+        <h4>¿Por qué estados polimórficos?</h4>
+        <p>El patrón State elimina la necesidad de cadenas de condicionales (if/switch) en cada operación que dependa del estado.
+        Cada estado encapsula sus transiciones válidas, lo que garantiza que las restricciones del flujo se respeten localmente.
+        Además, facilita agregar nuevos estados sin modificar los existentes.</p>
+      </div>
+      <div class="decision-card">
+        <h4>¿Por qué interfaces para reglas y puertos?</h4>
+        <p>Las interfaces permiten inversión de dependencias y extensibilidad. Las reglas implementan ReglaEvaluacion, lo que
+        permite añadir nuevas reglas sin modificar el evaluador. Los puertos (IClock, IPrestadorHabilitadoCatalog) desacoplan
+        el componente de la infraestructura, facilitando las pruebas unitarias con mocks y stubs.</p>
+      </div>
+      <div class="decision-card">
+        <h4>¿Por qué no acoplar a base de datos ni UI?</h4>
+        <p>El reto pide un componente reutilizable, no una aplicación. Acoplar a una base de datos o interfaz gráfica
+        violaría el principio de responsabilidad única del componente y lo haría dependiente de tecnologías que no le competen.
+        Los puertos externos permiten que el consumidor suministre la infraestructura según sus necesidades.</p>
+      </div>
+      <div class="decision-card">
+        <h4>¿Por qué una fachada como punto de entrada?</h4>
+        <p>MotorReglasFacade simplifica el uso del componente al exponer una API mínima y clara. El consumidor no necesita conocer
+        la estructura interna (evaluador, ejecutor, reglas, estados). La fachada actúa como puerta de entrada que orquesta
+        la colaboración entre los servicios internos de forma transparente.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 12. BENEFICIOS DE LA SOLUCIÓN                          -->
+<!-- ====================================================== -->
+<section id="beneficios" class="slide" data-nav="Beneficios">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 11</span>
+    <h2 class="section-title reveal">Beneficios de la Solución</h2>
+    <div class="section-divider reveal"></div>
+    <p class="section-desc reveal">El diseño propuesto ofrece ventajas tangibles que se traducen en calidad de software sostenible.</p>
+
+    <div class="beneficios-grid reveal">
+      <div class="beneficio-item">
+        <div class="beneficio-icon" style="background:var(--azul-claro); color:var(--azul-acento);">🔧</div>
+        <h4>Mantenibilidad</h4>
+        <p>Clases pequeñas y enfocadas. Cada cambio impacta solo el módulo responsable, minimizando el riesgo de efectos secundarios.</p>
+      </div>
+      <div class="beneficio-item">
+        <div class="beneficio-icon" style="background:#e6f9f0; color:var(--verde);">📐</div>
+        <h4>Extensibilidad</h4>
+        <p>Nuevas reglas, tipos de solicitud o estados se agregan implementando interfaces existentes, sin modificar código previo (OCP).</p>
+      </div>
+      <div class="beneficio-item">
+        <div class="beneficio-icon" style="background:#fff3e0; color:var(--naranja);">♻️</div>
+        <h4>Reutilización</h4>
+        <p>El motor puede integrarse en cualquier aplicación que necesite evaluar solicitudes de reembolso, independientemente de la tecnología.</p>
+      </div>
+      <div class="beneficio-item">
+        <div class="beneficio-icon" style="background:#e0faf3; color:#0d7a5f;">📖</div>
+        <h4>Claridad</h4>
+        <p>Nombres expresivos, responsabilidades distribuidas y un diagrama de clases legible. El código se explica a sí mismo.</p>
+      </div>
+      <div class="beneficio-item">
+        <div class="beneficio-icon" style="background:#fde8ea; color:var(--rojo);">🧪</div>
+        <h4>Testabilidad</h4>
+        <p>Cada regla, estado y servicio es una unidad aislada que puede probarse independientemente. Los puertos externos permiten usar mocks.</p>
+      </div>
+      <div class="beneficio-item">
+        <div class="beneficio-icon" style="background:var(--gris-200); color:var(--gris-700);">🔌</div>
+        <h4>Desacoplamiento</h4>
+        <p>El componente no depende de base de datos, UI, framework ni bibliotecas externas. Solo expone interfaces e implementa lógica pura.</p>
+      </div>
+    </div>
+
+    <div class="highlight-box reveal" style="margin-top:32px;">
+      <strong>Resultado:</strong> Un componente que se puede probar, extender, reutilizar y mantener con confianza,
+      alineado con las mejores prácticas de ingeniería de software.
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 13. CONCLUSIÓN FINAL                                   -->
+<!-- ====================================================== -->
+<section id="conclusion" class="slide" data-nav="Conclusión">
+  <div class="slide-inner">
+    <span class="section-label reveal">Sección 12</span>
+    <h2 class="section-title reveal">Conclusión</h2>
+    <div class="section-divider reveal"></div>
+
+    <div class="two-cols">
+      <div class="reveal">
+        <h3 style="margin-bottom:16px; color: var(--azul-oscuro);">Resumen Ejecutivo</h3>
+        <p style="font-size:.95rem; color:var(--gris-700);">
+          Se diseñó un motor de reglas de reembolsos médicos como componente desacoplado, modular y extensible.
+          La solución gestiona cuatro tipos de solicitud, controla un flujo de cinco estados con restricciones
+          estrictas, evalúa cinco reglas de negocio obligatorias y expone hallazgos con total transparencia.
+        </p>
+        <p style="font-size:.95rem; color:var(--gris-700);">
+          La arquitectura se organiza en capas con responsabilidades claras: dominio, estados (polimórficos),
+          reglas (interfaz), políticas (por tipo), servicios de aplicación y puertos externos. El resultado es
+          un componente que no depende de infraestructura, se puede probar unitariamente y se extiende sin
+          modificar código existente.
+        </p>
+      </div>
+      <div class="reveal reveal-delay-2">
+        <h3 style="margin-bottom:16px; color: var(--azul-oscuro);">Alineación con Principios</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Principio</th><th>Aplicación</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-blue">SRP</span></td><td>Cada clase = una responsabilidad</td></tr>
+              <tr><td><span class="badge badge-blue">OCP</span></td><td>Extensión vía interfaces, sin modificar</td></tr>
+              <tr><td><span class="badge badge-blue">LSP</span></td><td>Sustituibilidad de estados y reglas</td></tr>
+              <tr><td><span class="badge badge-blue">ISP</span></td><td>Interfaces mínimas y específicas</td></tr>
+              <tr><td><span class="badge badge-blue">DIP</span></td><td>Dependencias invertidas con puertos</td></tr>
+              <tr><td><span class="badge badge-teal">GRASP</span></td><td>Cohesión alta, acoplamiento bajo, polimorfismo</td></tr>
+              <tr><td><span class="badge badge-orange">DRY</span></td><td>Sin duplicación de lógica</td></tr>
+              <tr><td><span class="badge badge-orange">KISS</span></td><td>Diseño directo y comprensible</td></tr>
+              <tr><td><span class="badge badge-orange">YAGNI</span></td><td>Solo lo necesario para el reto</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box reveal" style="margin-top:32px; border-left-color: var(--verde); background: #e6f9f0;">
+      <strong>Conclusión:</strong> Esta arquitectura responde directamente al reto planteado. No es un ejercicio teórico: es una
+      propuesta concreta, bien fundamentada y lista para implementar. Cada decisión de diseño se justifica en principios
+      reconocidos de la ingeniería de software (SOLID, GRASP, DRY, KISS, YAGNI), demostrando que un buen diseño
+      comienza por una asignación clara de responsabilidades y un respeto disciplinado por las abstracciones.
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- 14. CIERRE VISUAL                                      -->
+<!-- ====================================================== -->
+<section id="cierre" class="slide" data-nav="Cierre">
+  <div class="slide-inner" style="text-align:center;">
+    <div class="reveal">
+      <svg width="80" height="80" viewBox="0 0 80 80" style="margin-bottom:24px;">
+        <circle cx="40" cy="40" r="38" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2"/>
+        <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.5"/>
+        <polygon points="40,18 44,32 58,32 47,41 51,55 40,46 29,55 33,41 22,32 36,32" fill="rgba(255,255,255,.9)"/>
+      </svg>
+    </div>
+    <h2 class="reveal reveal-delay-1" style="font-size:clamp(2rem,5vw,3rem); margin-bottom:16px;">¡Gracias!</h2>
+    <div class="cierre-linea reveal reveal-delay-2"></div>
+    <p class="reveal reveal-delay-2" style="font-size:1.15rem; opacity:.85; max-width:600px; margin:0 auto 16px;">
+      Motor de Reglas para Reembolsos Médicos
+    </p>
+    <p class="reveal reveal-delay-3" style="font-size:1rem; opacity:.65; max-width:500px; margin:0 auto 40px;">
+      Diseño arquitectónico basado en principios SOLID, GRASP y buenas prácticas de ingeniería de software.
+    </p>
+    <div class="reveal reveal-delay-4" style="display:inline-flex; gap:24px; flex-wrap:wrap; justify-content:center;">
+      <span class="portada-badge" style="font-size:.8rem;">Sustentación Final</span>
+      <span class="portada-badge" style="font-size:.8rem;">¿Preguntas?</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== -->
+<!-- JAVASCRIPT EMBEBIDO            -->
+<!-- ============================== -->
+<script>
+(function() {
+  'use strict';
+
+  /* ===== INTERSECTION OBSERVER PARA ANIMACIONES ===== */
+  var revealElements = document.querySelectorAll('.reveal');
+  var revealObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  revealElements.forEach(function(el) {
+    revealObserver.observe(el);
+  });
+
+  /* ===== BARRA DE PROGRESO ===== */
+  var progressBar = document.getElementById('progress-bar');
+  function updateProgress() {
+    var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    progressBar.style.width = progress + '%';
+  }
+
+  /* ===== NAVEGACIÓN ACTIVA ===== */
+  var sections = document.querySelectorAll('.slide[id]');
+  var sideNavLinks = document.querySelectorAll('#side-nav a');
+  var topNavLinks = document.querySelectorAll('#top-nav .nav-links a');
+
+  function updateActiveNav() {
+    var scrollPos = window.pageYOffset + window.innerHeight / 3;
+
+    sections.forEach(function(section, index) {
+      var top = section.offsetTop;
+      var bottom = top + section.offsetHeight;
+
+      if (scrollPos >= top && scrollPos < bottom) {
+        /* Side nav */
+        sideNavLinks.forEach(function(l) { l.classList.remove('active'); });
+        if (sideNavLinks[index]) sideNavLinks[index].classList.add('active');
+
+        /* Top nav */
+        topNavLinks.forEach(function(l) { l.classList.remove('active'); });
+        if (topNavLinks[index]) topNavLinks[index].classList.add('active');
+      }
+    });
+  }
+
+  /* ===== OCULTAR MENÚ SUPERIOR AL BAJAR ===== */
+  var topNav = document.getElementById('top-nav');
+  var lastScroll = 0;
+  function handleTopNav() {
+    var currentScroll = window.pageYOffset;
+    if (currentScroll > lastScroll && currentScroll > 200) {
+      topNav.classList.add('hidden');
+    } else {
+      topNav.classList.remove('hidden');
+    }
+    lastScroll = currentScroll;
+  }
+
+  /* ===== SCROLL EVENT ===== */
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      window.requestAnimationFrame(function() {
+        updateProgress();
+        updateActiveNav();
+        handleTopNav();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  });
+
+  /* Ejecutar al cargar */
+  updateProgress();
+  updateActiveNav();
+
+})();
+</script>
+</body>
+</html>

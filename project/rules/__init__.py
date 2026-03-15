@@ -1,0 +1,6 @@
+from .regla_evaluacion import ReglaEvaluacion
+from .regla_documentacion import ReglaDocumentacionMinima
+from .regla_ventana_tiempo import ReglaVentanaTiempo
+from .regla_monto_maximo import ReglaMontoMaximo
+from .regla_prestador_habilitado import ReglaPrestadorHabilitado
+from .regla_consistencia_datos import ReglaConsistenciaDatos
